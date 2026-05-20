@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+
+    // 上流から淡水
+    for(let y=0; y<HEIGHT; y++) {
+        if(river[y][0]) {
+            salinity[y][0] *= 0.2;
+        }
+    }
+
+    // 更新
+    for(let y=1; y<HEIGHT-1; y++) {
+        for(let x=1; x<WIDTH-1; x++) {
+
+            if(river[y][x]) {
+
+                const diffusion = (
+                    salinity[y+1][x] +
+                    salinity[y-1][x] +
+                    salinity[y][x+1] +
+                    salinity[y][x-1]
+                ) / 4;
+
+                const flow = salinity[y][x-1];
+
+                newSalinity[y][x] = (
+                    0.72 * salinity[y][x] +
+                    0.18 * diffusion +
+                    0.10 * flow
+                );
+            }
+        }
+    }
+
+    salinity = newSalinity;
+}
+
+function draw() {
+
+    ctx.fillStyle = 'black';
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+
+    for(let y=0; y<HEIGHT; y++) {
+        for(let x=0; x<WIDTH; x++) {
+
+            if(river[y][x]) {
+
+                const s = salinity[y][x];
+
+                const r = Math.floor(255 * s);
+                const b = Math.floor(255 * (1-s));
+
+                ctx.fillStyle = `rgb(${r},0,${b})`;
+                ctx.fillRect(x*CELL, y*CELL, CELL, CELL);
+            }
+        }
+    }
+}
+
+function animate() {
+    update();
+    draw();
+    requestAnimationFrame(animate);
+}
+
+createRiver(24);
+animate();
+
+</script>
+
+</body>
+    </html>
