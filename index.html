@@ -8,17 +8,17 @@
 
 body{
     margin:0;
-    background:#111;
+    background:#101418;
     color:white;
     font-family:sans-serif;
     text-align:center;
 }
 
 h1{
-    margin-top:10px;
+    margin:10px;
 }
 
-.container{
+.wrapper{
     display:flex;
     justify-content:center;
     gap:20px;
@@ -26,22 +26,35 @@ h1{
 }
 
 canvas{
+    background:#000;
     border:2px solid white;
-    background:black;
 }
 
 .info{
-    margin-top:5px;
-}
-
-button{
-    padding:10px 18px;
-    margin:10px;
-    font-size:16px;
+    margin-top:8px;
 }
 
 .legend{
-    margin-top:10px;
+    margin:10px;
+}
+
+.box{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+    margin:4px;
+}
+
+.color{
+    width:30px;
+    height:16px;
+}
+
+button{
+    margin:10px;
+    padding:10px 20px;
+    font-size:16px;
 }
 
 </style>
@@ -52,22 +65,37 @@ button{
 <h1>多摩川・相模川 汽水域シミュレーション</h1>
 
 <div class="legend">
-青 = 淡水 / 赤 = 海水 / 紫 = 汽水域
+
+<div class="box">
+<div class="color" style="background:blue"></div>
+<div>淡水域</div>
 </div>
 
-<button onclick="resetSimulation()">リセット</button>
+<div class="box">
+<div class="color" style="background:purple"></div>
+<div>汽水域</div>
+</div>
 
-<div class="container">
+<div class="box">
+<div class="color" style="background:red"></div>
+<div>海水域</div>
+</div>
+
+</div>
+
+<button onclick="resetAll()">リセット</button>
+
+<div class="wrapper">
 
 <div>
-<h2>多摩川モデル（蛇行大）</h2>
-<canvas id="tama" width="500" height="300"></canvas>
+<h2>多摩川モデル</h2>
+<canvas id="tama" width="420" height="700"></canvas>
 <div class="info" id="tamaInfo"></div>
 </div>
 
 <div>
-<h2>相模川モデル（蛇行小）</h2>
-<canvas id="sagami" width="500" height="300"></canvas>
+<h2>相模川モデル</h2>
+<canvas id="sagami" width="420" height="700"></canvas>
 <div class="info" id="sagamiInfo"></div>
 </div>
 
@@ -75,167 +103,265 @@ button{
 
 <script>
 
-const WIDTH = 180;
-const HEIGHT = 90;
-const CELL = 3;
+// =======================================
+// 基本設定
+// =======================================
 
-class RiverSimulation{
+const CELL = 4;
 
-    constructor(canvasId, meanderStrength, widthVariation){
+const W = 100;
+const H = 170;
 
-        this.canvas = document.getElementById(canvasId);
-        this.ctx = this.canvas.getContext("2d");
+// =======================================
+// 川モデル
+// =======================================
 
-        this.meanderStrength = meanderStrength;
-        this.widthVariation = widthVariation;
+class RiverModel{
 
-        this.salinity = [];
+    constructor(canvasId,type){
+
+        this.canvas =
+            document.getElementById(canvasId);
+
+        this.ctx =
+            this.canvas.getContext("2d");
+
+        this.type = type;
+
         this.river = [];
         this.depth = [];
+        this.salinity = [];
 
         this.initialize();
     }
 
     initialize(){
 
-        this.salinity = [];
         this.river = [];
         this.depth = [];
+        this.salinity = [];
 
-        for(let y=0;y<HEIGHT;y++){
+        for(let y=0;y<H;y++){
 
-            this.salinity[y] = [];
             this.river[y] = [];
             this.depth[y] = [];
+            this.salinity[y] = [];
 
-            for(let x=0;x<WIDTH;x++){
+            for(let x=0;x<W;x++){
 
-                this.salinity[y][x] = 0;
                 this.river[y][x] = false;
-                this.depth[y][x] = 1;
+                this.depth[y][x] = 0;
+                this.salinity[y][x] = 0;
             }
         }
 
         this.createRiver();
     }
 
+    // ===================================
+    // 写真形状を参考にした川生成
+    // ===================================
+
     createRiver(){
 
-        const centerY = HEIGHT/2;
+        for(let y=0;y<H;y++){
 
-        for(let x=0;x<WIDTH;x++){
+            let center;
+            let width;
 
-            const meander =
-                this.meanderStrength *
-                Math.sin(x/18);
+            // -------------------------------
+            // 多摩川
+            // -------------------------------
 
-            const yCenter =
-                Math.floor(centerY + meander);
+            if(this.type === "tama"){
 
-            const riverWidth =
-                7 +
-                Math.floor(
-                    this.widthVariation *
-                    Math.sin(x/12)
-                );
+                center =
+                    48
+                    + 10*Math.sin(y/18)
+                    + 5*Math.sin(y/7);
 
-            for(let dy=-riverWidth;dy<=riverWidth;dy++){
+                width =
+                    11
+                    + 3*Math.sin(y/13);
 
-                const y = yCenter + dy;
+            }
 
-                if(y>=0 && y<HEIGHT){
+            // -------------------------------
+            // 相模川
+            // -------------------------------
+
+            else{
+
+                center =
+                    50
+                    + 3*Math.sin(y/30)
+                    + 1.5*Math.sin(y/9);
+
+                width =
+                    9
+                    + 1*Math.sin(y/15);
+
+            }
+
+            for(let x=0;x<W;x++){
+
+                const dx =
+                    Math.abs(x-center);
+
+                if(dx < width){
 
                     this.river[y][x] = true;
 
                     // 川底地形
-                    const depthValue =
-                        1.0 +
-                        0.5*Math.sin(x/15) +
-                        0.3*Math.cos(y/8);
+                    // 中央が深い
 
-                    this.depth[y][x] = depthValue;
+                    let depthValue =
+
+                        1.0
+                        - (dx/width)*0.5
+
+                        + 0.15*Math.sin(y/20);
+
+                    this.depth[y][x] =
+                        depthValue;
+
+                    // 初期塩分
+
+                    this.salinity[y][x] = 0;
                 }
             }
         }
     }
+
+    // ===================================
+    // シミュレーション更新
+    // ===================================
 
     update(){
 
-        let newSalinity =
-            JSON.parse(JSON.stringify(this.salinity));
+        let next = [];
 
-        // 海水流入
-        for(let y=0;y<HEIGHT;y++){
+        for(let y=0;y<H;y++){
 
-            if(this.river[y][WIDTH-1]){
+            next[y] = [];
 
-                this.salinity[y][WIDTH-1] = 1.0;
+            for(let x=0;x<W;x++){
+
+                next[y][x] =
+                    this.salinity[y][x];
             }
         }
 
+        // ---------------------------
         // 上流から淡水
-        for(let y=0;y<HEIGHT;y++){
+        // ---------------------------
 
-            if(this.river[y][0]){
+        for(let x=0;x<W;x++){
 
-                this.salinity[y][0] *= 0.05;
+            if(this.river[0][x]){
+
+                this.salinity[0][x] = 0;
             }
         }
 
-        // 塩分移動
-        for(let y=1;y<HEIGHT-1;y++){
+        // ---------------------------
+        // 河口から海水
+        // ---------------------------
 
-            for(let x=1;x<WIDTH-1;x++){
+        for(let x=0;x<W;x++){
+
+            if(this.river[H-1][x]){
+
+                this.salinity[H-1][x] = 1;
+            }
+        }
+
+        // ---------------------------
+        // 流体計算
+        // ---------------------------
+
+        for(let y=1;y<H-1;y++){
+
+            for(let x=1;x<W-1;x++){
 
                 if(this.river[y][x]){
 
-                    const diffusion = (
+                    let s =
+                        this.salinity[y][x];
 
-                        this.salinity[y+1][x] +
-                        this.salinity[y-1][x] +
-                        this.salinity[y][x+1] +
-                        this.salinity[y][x-1]
+                    let up =
+                        this.salinity[y-1][x];
 
-                    ) / 4;
+                    let down =
+                        this.salinity[y+1][x];
 
-                    // 真水の流れ
-                    const freshwaterFlow =
+                    let left =
                         this.salinity[y][x-1];
 
-                    // 海水逆流
-                    const seawaterBackflow =
+                    let right =
                         this.salinity[y][x+1];
 
-                    // 川底で流れ変化
-                    const depthEffect =
-                        this.depth[y][x] * 0.03;
+                    // 拡散
 
-                    newSalinity[y][x] =
+                    let diffusion =
 
-                        0.60*this.salinity[y][x]
-                        + 0.18*diffusion
-                        + 0.12*freshwaterFlow
-                        + 0.07*seawaterBackflow
-                        + depthEffect;
+                        (
+                            up
+                            + down
+                            + left
+                            + right
+                        ) / 4;
 
-                    // 範囲制限
-                    if(newSalinity[y][x] > 1){
-                        newSalinity[y][x] = 1;
+                    // 深い場所ほど混ざりやすい
+
+                    let depthMix =
+
+                        this.depth[y][x]
+                        * 0.04;
+
+                    // 真水流れ
+                    let freshFlow =
+                        up * 0.15;
+
+                    // 海水逆流
+                    let seaFlow =
+                        down * 0.12;
+
+                    next[y][x] =
+
+                        s*0.60
+                        + diffusion*0.20
+                        + freshFlow
+                        + seaFlow
+                        + depthMix;
+
+                    // 制限
+
+                    if(next[y][x] > 1){
+
+                        next[y][x] = 1;
                     }
 
-                    if(newSalinity[y][x] < 0){
-                        newSalinity[y][x] = 0;
+                    if(next[y][x] < 0){
+
+                        next[y][x] = 0;
                     }
                 }
             }
         }
 
-        this.salinity = newSalinity;
+        this.salinity = next;
     }
+
+    // ===================================
+    // 描画
+    // ===================================
 
     draw(){
 
-        this.ctx.fillStyle = "black";
+        this.ctx.fillStyle =
+            "black";
+
         this.ctx.fillRect(
             0,
             0,
@@ -243,19 +369,49 @@ class RiverSimulation{
             this.canvas.height
         );
 
-        for(let y=0;y<HEIGHT;y++){
+        for(let y=0;y<H;y++){
 
-            for(let x=0;x<WIDTH;x++){
+            for(let x=0;x<W;x++){
 
                 if(this.river[y][x]){
 
-                    const s = this.salinity[y][x];
+                    let s =
+                        this.salinity[y][x];
 
-                    let r = Math.floor(255*s);
-                    let b = Math.floor(255*(1-s));
+                    let color;
+
+                    // 淡水域
+
+                    if(s <= 0.02){
+
+                        color = "rgb(0,100,255)";
+                    }
+
+                    // 海水域
+
+                    else if(s >= 0.98){
+
+                        color = "rgb(255,0,0)";
+                    }
+
+                    // 汽水域
+
+                    else{
+
+                        let r =
+                            Math.floor(255*s);
+
+                        let b =
+                            Math.floor(
+                                255*(1-s)
+                            );
+
+                        color =
+                            `rgb(${r},0,${b})`;
+                    }
 
                     this.ctx.fillStyle =
-                        `rgb(${r},0,${b})`;
+                        color;
 
                     this.ctx.fillRect(
                         x*CELL,
@@ -268,22 +424,31 @@ class RiverSimulation{
         }
     }
 
-    calculateBoundary(){
+    // ===================================
+    // 汽水域境界検出
+    // ===================================
 
-        let freshwaterBoundary = WIDTH;
-        let seawaterBoundary = 0;
+    getBoundary(){
 
-        for(let x=0;x<WIDTH;x++){
+        let top = H;
+        let bottom = 0;
+
+        for(let y=0;y<H;y++){
 
             let mixed = false;
 
-            for(let y=0;y<HEIGHT;y++){
+            for(let x=0;x<W;x++){
 
                 if(this.river[y][x]){
 
-                    const s = this.salinity[y][x];
+                    let s =
+                        this.salinity[y][x];
 
-                    if(s > 0 && s < 1){
+                    if(
+                        s > 0.02
+                        &&
+                        s < 0.98
+                    ){
 
                         mixed = true;
                     }
@@ -292,34 +457,40 @@ class RiverSimulation{
 
             if(mixed){
 
-                freshwaterBoundary =
-                    Math.min(freshwaterBoundary, x);
+                top =
+                    Math.min(top,y);
 
-                seawaterBoundary =
-                    Math.max(seawaterBoundary, x);
+                bottom =
+                    Math.max(bottom,y);
             }
         }
 
         return {
-            freshwaterBoundary,
-            seawaterBoundary
+            top,
+            bottom
         };
     }
 }
 
+// =======================================
+// モデル生成
+// =======================================
+
 const tama =
-    new RiverSimulation(
+    new RiverModel(
         "tama",
-        20,
-        3
+        "tama"
     );
 
 const sagami =
-    new RiverSimulation(
+    new RiverModel(
         "sagami",
-        6,
-        1
+        "sagami"
     );
+
+// =======================================
+// アニメーション
+// =======================================
 
 function animate(){
 
@@ -329,30 +500,30 @@ function animate(){
     tama.draw();
     sagami.draw();
 
-    const t =
-        tama.calculateBoundary();
+    const tb =
+        tama.getBoundary();
 
-    const s =
-        sagami.calculateBoundary();
+    const sb =
+        sagami.getBoundary();
 
-    document.getElementById("tamaInfo").innerHTML =
+    document.getElementById(
+        "tamaInfo"
+    ).innerHTML =
 
-        "汽水域範囲 : "
-        + t.freshwaterBoundary
-        + " ～ "
-        + t.seawaterBoundary;
+        `汽水域境界: ${tb.top} ～ ${tb.bottom}`;
 
-    document.getElementById("sagamiInfo").innerHTML =
+    document.getElementById(
+        "sagamiInfo"
+    ).innerHTML =
 
-        "汽水域範囲 : "
-        + s.freshwaterBoundary
-        + " ～ "
-        + s.seawaterBoundary;
+        `汽水域境界: ${sb.top} ～ ${sb.bottom}`;
 
-    requestAnimationFrame(animate);
+    requestAnimationFrame(
+        animate
+    );
 }
 
-function resetSimulation(){
+function resetAll(){
 
     tama.initialize();
     sagami.initialize();
@@ -363,4 +534,4 @@ animate();
 </script>
 
 </body>
-</html>
+    </html>
